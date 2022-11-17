@@ -1,21 +1,33 @@
 package com.bottelegram.bottelegram;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.util.EntityUtils;
 import org.json.JSONArray;
 import org.json.simple.parser.JSONParser;
 import org.json.JSONObject;
+import org.json.simple.parser.ParseException;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Update;
+import org.apache.http.*;
 
-import java.io.File;
-import java.io.FileReader;
-import java.nio.file.*;
+import java.io.*;
+import java.net.URL;
+import java.nio.channels.Channels;
+import java.nio.channels.ReadableByteChannel;
+import java.nio.file.Files;
+import java.time.LocalDateTime;
+
+import static java.lang.Thread.sleep;
 
 
 public class TelegramBot extends TelegramLongPollingBot {
 
-    static String URL_FICHERO = System.getProperty("user.home") + File.separator + "Desktop";
-
+    static String URL_FICHERO = System.getProperty("user.dir");
     @Override
     public String getBotUsername() {
         return "SoleraBot";
@@ -29,15 +41,19 @@ public class TelegramBot extends TelegramLongPollingBot {
     @Override
     public void onUpdateReceived(Update update) {
         try {
-            if (update.getMessage().getText().equals("/ganador"))
+             if (update.getMessage().getText().equals("/ganador"))
                 ganadorJSON(update);
             if (update.getMessage().getText().equals("/help")){
-                SendMessage sendMessage = sendMessage(update.getMessage().getChatId(), "AYUDA:\n/help -> Ayuda\n/ganador -> Ganador en el momento \n/puntuacion -> Puntuacion de cada equipo");
+                SendMessage sendMessage = sendMessage(update.getMessage().getChatId(), "AYUDA:\n/help -> Ayuda\n/ganador -> Ganador en el momento" +
+                        " \n/puntuacion -> Puntuacion de cada equipo \n/escuchar -> Enciende la opcion de escuchar si el archivo JSON es modificado" );
                 execute(sendMessage);
             }
             if (update.getMessage().getText().equals("/puntuacion"))
                 puntuacionJSON(update);
-//            verifyModify(update);
+            if(update.getMessage().getText().equals("/escuchar"))
+                while(true)
+                        verifyModify(update);
+
         }
         catch (Exception e) {
             e.printStackTrace();
@@ -50,7 +66,7 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     public void ganadorJSON(Update update) throws Exception{
         String name = null;
-        String myJson = new JSONParser().parse(new FileReader(URL_FICHERO + File.separator + "teamdata.json")).toString();
+        String myJson = new JSONParser().parse(traerJSON()).toString();
         int valorMax = 0;
         JSONObject ob = new JSONObject(myJson);
         JSONArray teams = ob.getJSONArray("teamdata");
@@ -77,8 +93,7 @@ public class TelegramBot extends TelegramLongPollingBot {
     public void puntuacionJSON(Update update) throws Exception{
         String[] equipos = new String[10];
         String  name = null;
-        String myJson = new JSONParser().parse(new FileReader(URL_FICHERO + File.separator + "teamdata.json")).toString();
-        int valorMax = 0;
+        String myJson = new JSONParser().parse(traerJSON()).toString();
         JSONObject ob = new JSONObject(myJson);
         JSONArray teams = ob.getJSONArray("teamdata");
         JSONArray points;
@@ -99,25 +114,36 @@ public class TelegramBot extends TelegramLongPollingBot {
         execute(send);
     }
 
+//    public void verifyModify(Update update) throws Exception {
+//        WatchService watchService
+//                = FileSystems.getDefault().newWatchService();
+//
+//        Path path = Paths.get(URL_FICHERO);
+//
+//        path.register(
+//                watchService,
+//                StandardWatchEventKinds.ENTRY_MODIFY);
+//
+//        WatchKey key;
+//        while ((key = watchService.take()) != null) {
+//            for (WatchEvent<?> event : key.pollEvents()) {
+//                ganadorJSON(update);
+//            }
+//            key.reset();
+//            break;
+//        }
+//    }
+
     public void verifyModify(Update update) throws Exception {
-        WatchService watchService
-                = FileSystems.getDefault().newWatchService();
 
-        Path path = Paths.get(URL_FICHERO);
-
-        path.register(
-                watchService,
-                StandardWatchEventKinds.ENTRY_MODIFY);
-
-        WatchKey key;
-        while ((key = watchService.take()) != null) {
-            for (WatchEvent<?> event : key.pollEvents()) {
-                ganadorJSON(update);
-            }
-            key.reset();
-            break;
-        }
     }
 
+    public String traerJSON() throws IOException {
+        CloseableHttpClient httpClient = HttpClients.createDefault();
+        HttpGet request = new HttpGet("https://raw.githubusercontent.com/Matiarriete/TelegramJSON/main/teamdata.json");
+        CloseableHttpResponse response = httpClient.execute(request);
+        HttpEntity entity = response.getEntity();
+        return EntityUtils.toString(entity);
 
+    }
 }
