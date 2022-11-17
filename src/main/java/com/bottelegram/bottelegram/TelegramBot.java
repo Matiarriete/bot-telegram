@@ -1,6 +1,5 @@
 package com.bottelegram.bottelegram;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -9,25 +8,19 @@ import org.apache.http.util.EntityUtils;
 import org.json.JSONArray;
 import org.json.simple.parser.JSONParser;
 import org.json.JSONObject;
-import org.json.simple.parser.ParseException;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.apache.http.*;
 
 import java.io.*;
-import java.net.URL;
-import java.nio.channels.Channels;
-import java.nio.channels.ReadableByteChannel;
-import java.nio.file.Files;
 import java.time.LocalDateTime;
-
-import static java.lang.Thread.sleep;
-
 
 public class TelegramBot extends TelegramLongPollingBot {
 
-    static String URL_FICHERO = System.getProperty("user.dir");
+    int hora = 0;
+    SendMessage sendMessage;
+
     @Override
     public String getBotUsername() {
         return "SoleraBot";
@@ -44,16 +37,24 @@ public class TelegramBot extends TelegramLongPollingBot {
              if (update.getMessage().getText().equals("/ganador"))
                 ganadorJSON(update);
             if (update.getMessage().getText().equals("/help")){
-                SendMessage sendMessage = sendMessage(update.getMessage().getChatId(), "AYUDA:\n/help -> Ayuda\n/ganador -> Ganador en el momento" +
+                sendMessage = sendMessage(update.getMessage().getChatId(), "AYUDA:\n/help -> Ayuda\n/ganador -> Ganador en el momento" +
                         " \n/puntuacion -> Puntuacion de cada equipo \n/escuchar -> Enciende la opcion de escuchar si el archivo JSON es modificado" );
                 execute(sendMessage);
             }
             if (update.getMessage().getText().equals("/puntuacion"))
                 puntuacionJSON(update);
-            if(update.getMessage().getText().equals("/escuchar"))
-                while(true)
-                        verifyModify(update);
-
+            if(update.getMessage().getText().equals("/escuchar")) {
+                sendMessage = sendMessage(update.getMessage().getChatId(), "AVISO: Informamos que una vez que seleccione esta opcion " +
+                        "no podra realizar ninguna otra accion mas y recibira un mensaje cada hora informando el ganador actual." +
+                        " Si desea continuar con esta seleccion envie /escucharSI");
+                execute(sendMessage);
+            }
+            if(update.getMessage().getText().equals("/escucharSI")) {
+                sendMessage = sendMessage(update.getMessage().getChatId(), "Iniciando el modo escucha ...");
+                while (true) {
+                    verifyModify(update);
+                }
+            }
         }
         catch (Exception e) {
             e.printStackTrace();
@@ -86,8 +87,8 @@ public class TelegramBot extends TelegramLongPollingBot {
                 }
             }
         }
-        SendMessage send = sendMessage(update.getMessage().getChatId(), "El ganador/es es/son " + name);
-        execute(send);
+        sendMessage = sendMessage(update.getMessage().getChatId(), "El ganador/es es/son " + name);
+        execute(sendMessage);
     }
 
     public void puntuacionJSON(Update update) throws Exception{
@@ -109,33 +110,17 @@ public class TelegramBot extends TelegramLongPollingBot {
         for (int i = 0; i < teams.length(); i++) {
             System.out.println(equipos[i]);
         }
-        SendMessage send = sendMessage(update.getMessage().getChatId(), "La puntuacion de los equipos son: \n" + equipos[0] + "\n" + equipos[1] + "\n" + equipos[2] + "\n" + equipos[3] + "\n" + equipos[4] + "\n"
+        sendMessage = sendMessage(update.getMessage().getChatId(), "La puntuacion de los equipos son: \n" + equipos[0] + "\n" + equipos[1] + "\n" + equipos[2] + "\n" + equipos[3] + "\n" + equipos[4] + "\n"
                 + equipos[5] + "\n" + equipos[6] + "\n" + equipos[7] + "\n" + equipos[8] + "\n" + equipos[9]);
-        execute(send);
+        execute(sendMessage);
     }
 
-//    public void verifyModify(Update update) throws Exception {
-//        WatchService watchService
-//                = FileSystems.getDefault().newWatchService();
-//
-//        Path path = Paths.get(URL_FICHERO);
-//
-//        path.register(
-//                watchService,
-//                StandardWatchEventKinds.ENTRY_MODIFY);
-//
-//        WatchKey key;
-//        while ((key = watchService.take()) != null) {
-//            for (WatchEvent<?> event : key.pollEvents()) {
-//                ganadorJSON(update);
-//            }
-//            key.reset();
-//            break;
-//        }
-//    }
-
     public void verifyModify(Update update) throws Exception {
-
+        if (LocalDateTime.now().getHour() == hora){
+            if(hora < 23)hora = hora + 1;
+            else hora = 0;
+            ganadorJSON(update);
+        }
     }
 
     public String traerJSON() throws IOException {
