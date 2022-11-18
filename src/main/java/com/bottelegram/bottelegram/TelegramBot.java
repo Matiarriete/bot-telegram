@@ -38,7 +38,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                 ganadorJSON(update);
             if (update.getMessage().getText().equals("/help")){
                 sendMessage = sendMessage(update.getMessage().getChatId(), "AYUDA:\n/help -> Ayuda\n/ganador -> Ganador en el momento" +
-                        " \n/puntuacion -> Puntuacion de cada equipo \n/escuchar -> Enciende la opcion de escuchar si el archivo JSON es modificado" );
+                        " \n/puntuacion -> Puntuacion de cada equipo \n/puntuacionEquipo [Nombre del equipo] -> Puntuacion detallada de cada equipo \n/escuchar -> Enciende la opcion de escuchar si el archivo JSON es modificado" );
                 execute(sendMessage);
             }
             if (update.getMessage().getText().equals("/puntuacion"))
@@ -53,6 +53,14 @@ public class TelegramBot extends TelegramLongPollingBot {
                 sendMessage = sendMessage(update.getMessage().getChatId(), "Iniciando el modo escucha ...");
                 while (true) {
                     verifyModify(update);
+                }
+            }
+            if(update.getMessage().getText().contains("/puntuacionEquipo")){
+                try {
+                    puntuacionEquipoJSON(update, update.getMessage().getText().substring(18));
+                } catch (Exception e){
+                    sendMessage = sendMessage(update.getMessage().getChatId(), "Verifique que escribio un grupo");
+                    execute(sendMessage);
                 }
             }
         }
@@ -115,6 +123,33 @@ public class TelegramBot extends TelegramLongPollingBot {
         execute(sendMessage);
     }
 
+    public void puntuacionEquipoJSON(Update update, String nombre) throws Exception{
+        int resultado = 0;
+        String textoFinal = "";
+        String  name = null;
+        String myJson = new JSONParser().parse(traerJSON()).toString();
+        JSONObject ob = new JSONObject(myJson);
+        JSONArray teams = ob.getJSONArray("teamdata");
+        JSONArray points = null;
+        for (int i = 0; i < teams.length(); i++) {
+            if(teams.getJSONObject(i).getString("name").equalsIgnoreCase(nombre)) {
+                points = teams.getJSONObject(i).getJSONArray("actividades");
+
+                for (int j = 0; j < points.length(); j++) {
+                    resultado = points.getJSONObject(j).getInt("puntos") + resultado;
+                    name = points.getJSONObject(j).getString("name") + ": " + points.getJSONObject(j).getInt("puntos");
+                    textoFinal = textoFinal + name + "\n";
+                }
+                textoFinal = textoFinal + "\n" + "----------------------------" +  "\n" + "TOTAL: " + resultado;
+            }
+        }
+
+        if(textoFinal.equals("")) sendMessage = sendMessage(update.getMessage().getChatId(), "Verifique que el nombre del equipo este bien escrito");
+        else sendMessage = sendMessage(update.getMessage().getChatId(), "Las puntuaciones del equipo son: \n" + textoFinal);
+
+        execute(sendMessage);
+    }
+
     public void verifyModify(Update update) throws Exception {
         if (LocalDateTime.now().getHour() == hora){
             if(hora < 23)hora = hora + 1;
@@ -125,7 +160,7 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     public String traerJSON() throws IOException {
         CloseableHttpClient httpClient = HttpClients.createDefault();
-        HttpGet request = new HttpGet("https://raw.githubusercontent.com/Matiarriete/TelegramJSON/main/teamdata.json");
+        HttpGet request = new HttpGet("https://raw.githubusercontent.com/danibanez/bootcampsolera/main/src/data/teamdata.json");
         CloseableHttpResponse response = httpClient.execute(request);
         HttpEntity entity = response.getEntity();
         return EntityUtils.toString(entity);
